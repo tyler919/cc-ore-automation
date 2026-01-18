@@ -1,29 +1,21 @@
-# CC Ore Automation
+# CC Ore Automation (SFM Edition)
 
-Automated deepslate ore processing system for Minecraft using CC: Tweaked and Create mod. Converts dirt and water into iron, copper, zinc, gold, and brass ingots.
-
-## Features
-
-- **Full Automation**: Dirt + Water → Ingots, completely automated
-- **Multiple Metals**: Iron, Copper, Zinc, Gold, and Brass
-- **Storage Limits**: Automatically stops when storage reaches 640 items (10 stacks)
-- **Live Monitoring**: Real-time display of inventory counts and fluid levels
-- **Redstone Control**: Control machine sections via redstone outputs
-- **Auto-Update**: Built-in update checker and installer
+Automated deepslate ore processing system for Minecraft using **Super Factory Manager (SFM)** and Create mod. Converts dirt and water into iron, copper, zinc, gold, and brass ingots.
 
 ## Requirements
 
-- Minecraft with Create mod
-- CC: Tweaked mod
-- Advanced Computer (for colors) or standard Computer
+- Minecraft 1.19.2+ (or your modpack version)
+- **Super Factory Manager (SFM)** mod
+- **Create** mod
+- Inventory cables and labels
 
-## Installation
+## SFM Setup
 
-Run this command on your ComputerCraft computer:
-
-```
-wget run https://raw.githubusercontent.com/tyler919/cc-ore-automation/main/install.lua
-```
+You need:
+1. **Factory Manager** block
+2. **Label Gun**
+3. **Disk** (to save programs)
+4. **Inventory Cables** to connect machines
 
 ## Processing Chain
 
@@ -44,62 +36,40 @@ Step 8: 2mB Copper + 1mB Zinc → 3mB Molten Brass
 Step 9: 45mB Molten Metal → Basin + Press → 1 Ingot
 ```
 
-## Usage
+## SFM Programs
 
-After installation, start the program:
+### 01-mud.sfm - Mud Maker
 
-```
-main
-```
+**Labels needed:**
+| Label | Block | Description |
+|-------|-------|-------------|
+| `storage` | Chest/Drawer | Main item storage |
+| `water` | Fluid Tank | Water source |
+| `basin` | Create Basin | With mixer above |
 
-### Main Menu
+**What it does:**
+1. Takes dirt from storage → puts in basin
+2. Takes 200mB water from tank → puts in basin
+3. Mixer combines them into mud
+4. Takes mud from basin → puts in storage
 
-- `[1]` Start Processing - Begin the automation loop
-- `[2]` Stop Processing - Stop all machines
-- `[3]` View Status - See peripherals and redstone states
-- `[4]` View Inventory - See ingot counts and fluid levels
-- `[U]` Check for Updates
-- `[Q]` Quit
+## Installation
 
-### Processing Display
-
-While running, the display shows:
-- Current status (Running/Paused)
-- Ingot counts for each metal
-- Automatic pause when any metal reaches 640
-
-## Configuration
-
-Edit `config/ores.lua` to customize:
-
-```lua
-config.settings = {
-    processInterval = 1,      -- Seconds between checks
-    maxItems = 640,           -- Storage limit (10 stacks)
-    mbPerIngot = 45,          -- Molten metal per ingot
-
-    redstoneOutput = {
-        mudMaker = "left",    -- Controls dirt/water input
-        crusher = "right",    -- Controls crushing wheels
-        smelter = "back",     -- Controls furnaces
-        melter = "top",       -- Controls heated mixer
-    },
-}
-```
+1. Download the `.sfm` files from the `sfm/` folder
+2. In Minecraft, put a disk in the Factory Manager
+3. Open the manager and paste/type the program
+4. Use the Label Gun to label your blocks
+5. Connect everything with inventory cables
+6. Click "Run" in the Factory Manager
 
 ## Project Structure
 
 ```
-/ (Computer Root)
-├── main.lua           # Main program
-├── update.lua         # Update manager
-├── version.txt        # Current version
-├── lib/
-│   └── utils.lua      # Shared utilities
-├── create/
-│   └── processor.lua  # Ore processor
-└── config/
-    └── ores.lua       # Configuration
+sfm/
+├── 01-mud.sfm          # Mud automation
+├── 02-packed-mud.sfm   # (coming soon)
+├── 03-crushing.sfm     # (coming soon)
+└── ...
 ```
 
 ## Output Metals
@@ -111,12 +81,13 @@ config.settings = {
 | Zinc | Deepslate crushing | 20% |
 | Gold | Deepslate crushing | 15% |
 | Brass | Alloying (2 Copper + 1 Zinc) | N/A |
-| XP Nuggets | Deepslate crushing | 5% |
+
+## Resources
+
+- [SFM GitHub](https://github.com/TeamDman/SuperFactoryManager)
+- [SFM CurseForge](https://www.curseforge.com/minecraft/mc-mods/super-factory-manager)
+- [SFM Examples](https://github.com/TeamDman/SuperFactoryManager/tree/1.18/examples)
 
 ## License
 
 MIT License
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request.

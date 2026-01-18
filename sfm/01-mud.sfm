@@ -1,0 +1,32 @@
+-- SFM Ore Automation: Step 1 - Mud Making
+-- Dirt + 200mB Water -> Basin with Mixer -> Mud
+--
+-- Labels needed:
+--   storage  = Your main storage (chest, barrel, drawer controller)
+--   water    = Fluid tank containing water
+--   basin    = Create basin with mechanical mixer above it
+
+NAME "01 - Mud Maker"
+
+-- Move dirt and water into basin for mixing
+EVERY 20 TICKS DO
+    -- Take 1 dirt from storage
+    INPUT minecraft:dirt FROM storage
+    -- Send dirt to basin
+    OUTPUT TO basin
+END
+
+EVERY 20 TICKS DO
+    -- Take 200mB water from tank
+    INPUT 200 fluid::minecraft:water FROM water
+    -- Send water to basin
+    OUTPUT fluid:: TO basin
+END
+
+-- Collect finished mud from basin
+EVERY 20 TICKS DO
+    -- Pull mud from basin
+    INPUT minecraft:mud FROM basin
+    -- Send to storage
+    OUTPUT TO storage
+END
