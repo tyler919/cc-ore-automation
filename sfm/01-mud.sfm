@@ -1,32 +1,164 @@
--- SFM Ore Automation: Step 1 - Mud Making
--- Dirt + 200mB Water -> Basin with Mixer -> Mud
+-- ============================================
+-- SFM Ore Automation - Complete Processing Chain
+-- ============================================
+-- Converts Dirt + Water into Raw Ore Chunks
 --
--- Labels needed:
---   storage  = Your main storage (chest, barrel, drawer controller)
---   water    = Fluid tank containing water
---   basin    = Create basin with mechanical mixer above it
+-- PROCESSING FLOW:
+--   Dirt + Water -> Mud -> Packed Mud -> Crush ->
+--   Cobbled Deepslate + Deepslate Chunks ->
+--   Smelt to Deepslate -> Crush -> Raw Ores
+--
+-- ============================================
+-- LABELS REQUIRED:
+-- ============================================
+--   Storage  = Main item storage (chest/drawers)
+--   Water    = Fluid tank with water
+--   Mud      = Basin + Mixer (makes mud from dirt+water)
+--   PM       = Basin input for packed mud (mud goes here)
+--   PM_1     = Basin input for wheat (wheat goes here)
+--   PMU      = Packed mud output location
+--   CWI      = Crushing Wheel Input (packed mud in)
+--   CWU      = Crushing Wheel Output (cobbled deepslate + chunks out)
+--   C        = Compacting Basin (4 chunks -> cobbled deepslate)
+--   Bulk     = Bulk Smelting Input (cobbled deepslate in)
+--   BU       = Bulk Smelting Output (deepslate out)
+--   MC       = Main Crusher Input (deepslate in)
+--   MCU      = Main Crusher Output (raw ores out)
+-- ============================================
 
-NAME "01 - Mud Maker"
+NAME "Ore Factory - Complete Chain"
 
--- Move dirt and water into basin for mixing
-EVERY 20 TICKS DO
-    -- Take 1 dirt from storage
-    INPUT minecraft:dirt FROM storage
-    -- Send dirt to basin
-    OUTPUT TO basin
+
+-- ============================================
+-- STEP 1: MUD MAKING
+-- Dirt + 500mB Water -> Mud
+-- ============================================
+
+-- Send dirt from storage to mud basin
+EVERY REDSTONE PULSE DO
+    INPUT minecraft:dirt FROM Storage
+    OUTPUT TO EACH Mud
 END
 
-EVERY 20 TICKS DO
-    -- Take 200mB water from tank
-    INPUT 200 fluid::minecraft:water FROM water
-    -- Send water to basin
-    OUTPUT fluid:: TO basin
+-- Send water from tank to mud basin
+EVERY REDSTONE PULSE DO
+    INPUT 500 fluid:minecraft:water FROM Water
+    OUTPUT fluid:: TO EACH Mud
 END
 
--- Collect finished mud from basin
-EVERY 20 TICKS DO
-    -- Pull mud from basin
-    INPUT minecraft:mud FROM basin
-    -- Send to storage
-    OUTPUT TO storage
+-- Collect mud from basin back to storage
+EVERY REDSTONE PULSE DO
+    INPUT minecraft:mud FROM Mud
+    OUTPUT TO EACH Storage
 END
+
+
+-- ============================================
+-- STEP 2: PACKED MUD CRAFTING
+-- Mud + Wheat -> Packed Mud
+-- ============================================
+
+-- Send mud to packed mud basin
+EVERY REDSTONE PULSE DO
+    INPUT minecraft:mud FROM Storage
+    OUTPUT TO EACH PM
+END
+
+-- Send wheat to packed mud basin
+EVERY REDSTONE PULSE DO
+    INPUT minecraft:wheat FROM Storage
+    OUTPUT TO EACH PM_1
+END
+
+-- Collect packed mud from output
+EVERY REDSTONE PULSE DO
+    INPUT minecraft:packed_mud FROM PMU
+    OUTPUT TO EACH Storage
+END
+
+
+-- ============================================
+-- STEP 3: CRUSH PACKED MUD
+-- Packed Mud -> Cobbled Deepslate + Deepslate Chunks
+-- ============================================
+
+-- Send packed mud to crushing wheels
+EVERY REDSTONE PULSE DO
+    INPUT minecraft:packed_mud FROM Storage
+    OUTPUT TO EACH CWI
+END
+
+-- Collect cobbled deepslate from crusher
+EVERY REDSTONE PULSE DO
+    INPUT minecraft:cobbled_deepslate FROM CWU
+    OUTPUT TO EACH Storage
+END
+
+-- Collect deepslate chunks from crusher
+EVERY REDSTONE PULSE DO
+    INPUT create_ore_factory:deepslate_chunk FROM CWU
+    OUTPUT TO EACH Storage
+END
+
+
+-- ============================================
+-- STEP 4: COMPACT DEEPSLATE CHUNKS
+-- 4x Deepslate Chunks -> Cobbled Deepslate
+-- ============================================
+
+-- Send deepslate chunks to compacting basin
+EVERY REDSTONE PULSE DO
+    INPUT create_ore_factory:deepslate_chunk FROM Storage
+    OUTPUT TO EACH C
+END
+
+-- Collect compacted cobbled deepslate
+EVERY REDSTONE PULSE DO
+    INPUT minecraft:cobbled_deepslate FROM C
+    OUTPUT TO EACH Storage
+END
+
+
+-- ============================================
+-- STEP 5: SMELT COBBLED DEEPSLATE
+-- Cobbled Deepslate -> Deepslate
+-- ============================================
+
+-- Send cobbled deepslate to bulk smelting
+EVERY REDSTONE PULSE DO
+    INPUT minecraft:cobbled_deepslate FROM Storage
+    OUTPUT TO EACH Bulk
+END
+
+-- Collect smelted deepslate
+EVERY REDSTONE PULSE DO
+    INPUT minecraft:deepslate FROM BU
+    OUTPUT TO EACH Storage
+END
+
+
+-- ============================================
+-- STEP 6: CRUSH DEEPSLATE -> RAW ORES
+-- Deepslate -> Raw Iron/Copper/Gold/Zinc + XP
+-- ============================================
+
+-- Send deepslate to main crusher
+EVERY REDSTONE PULSE DO
+    INPUT minecraft:deepslate FROM Storage
+    OUTPUT TO EACH MC
+END
+
+-- Collect all raw ore chunks and XP nuggets
+EVERY REDSTONE PULSE DO
+    INPUT create_ore_factory:raw_iron_chunk FROM MCU
+    INPUT create_ore_factory:raw_copper_chunk FROM MCU
+    INPUT create_ore_factory:raw_gold_chunk FROM MCU
+    INPUT create_ore_factory:raw_zinc_chunk FROM MCU
+    INPUT create:experience_nugget FROM MCU
+    OUTPUT TO EACH Storage
+END
+
+
+-- ============================================
+-- END OF PROGRAM
+-- ============================================
