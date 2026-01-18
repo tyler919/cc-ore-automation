@@ -350,6 +350,27 @@ end
 
 -- Main program loop
 local function main()
+    -- Initialize processor and discover peripherals
+    term.clear()
+    term.setCursorPos(1, 1)
+    cprint("================================", colors.cyan)
+    cprint("  CC Ore Automation", colors.cyan)
+    cprint("================================", colors.cyan)
+    print("")
+
+    local processor = require("create.processor")
+    local ok = processor.init()
+
+    if not ok then
+        cprint("WARNING: No storage found!", colors.red)
+        cprint("Connect a storage drawer controller", colors.yellow)
+        cprint("or chest via wired modem.", colors.yellow)
+        print("")
+    end
+
+    print("Press any key to continue...")
+    os.pullEvent("key")
+
     -- Check for updates on startup (silent, with timeout)
     parallel.waitForAny(
         function()
