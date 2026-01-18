@@ -1,205 +1,254 @@
--- CC Ore Automation - Create Mod Ore Processor
--- Handles crushing, washing, and processing of ores using Create mod
+-- CC Ore Automation - Deepslate Ore Processor
+-- Automates the complete ore processing chain:
+-- Dirt + Water -> Mud -> Packed Mud -> Crush -> Deepslate -> Raw Ores -> Molten -> Ingots
 
 local utils = require("lib.utils")
 local config = require("config.ores")
 
 local processor = {}
 
--- Create mod ore processing chains
--- Crushing: Ore -> Crushed Ore (bonus chance for extra)
--- Washing: Crushed Ore -> Nuggets + bonus items
-local processingChains = {
-    -- Iron processing chain
-    iron = {
-        input = {"minecraft:raw_iron", "minecraft:iron_ore", "minecraft:deepslate_iron_ore"},
-        crushed = "create:crushed_raw_iron",
-        washed = "minecraft:iron_nugget",
-        bonus = "minecraft:flint"
-    },
-    -- Gold processing chain
-    gold = {
-        input = {"minecraft:raw_gold", "minecraft:gold_ore", "minecraft:deepslate_gold_ore", "minecraft:nether_gold_ore"},
-        crushed = "create:crushed_raw_gold",
-        washed = "minecraft:gold_nugget",
-        bonus = "minecraft:quartz"
-    },
-    -- Copper processing chain
-    copper = {
-        input = {"minecraft:raw_copper", "minecraft:copper_ore", "minecraft:deepslate_copper_ore"},
-        crushed = "create:crushed_raw_copper",
-        washed = "create:copper_nugget",
-        bonus = "minecraft:clay_ball"
-    },
-    -- Zinc processing chain
-    zinc = {
-        input = {"create:raw_zinc", "create:zinc_ore", "create:deepslate_zinc_ore"},
-        crushed = "create:crushed_raw_zinc",
-        washed = "create:zinc_nugget",
-        bonus = nil
-    },
-    -- Gravel washing
-    gravel = {
-        input = {"minecraft:gravel"},
-        washed = "minecraft:flint",
-        bonus = "minecraft:iron_nugget"
-    },
-    -- Sand washing (soul sand)
-    soul_sand = {
-        input = {"minecraft:soul_sand"},
-        washed = "minecraft:quartz",
-        bonus = "minecraft:gold_nugget"
-    },
+-- Current inventory counts
+local inventoryCounts = {
+    iron = 0,
+    copper = 0,
+    zinc = 0,
+    gold = 0,
+    brass = 0,
+    xp = 0,
 }
 
--- Find Create mod peripherals
-local function findCrushingWheel()
-    -- Create crushing wheels are usually controlled via depot/belt
-    return utils.findPeripheral("create:depot")
+-- Fluid levels (mB)
+local fluidLevels = {
+    molten_iron = 0,
+    molten_copper = 0,
+    molten_zinc = 0,
+    molten_gold = 0,
+    molten_brass = 0,
+}
+
+-- Status flags
+local status = {
+    running = false,
+    paused = {},  -- Which lines are paused due to storage limits
+    lastUpdate = 0,
+}
+
+-- Find all inventories
+local function findInventories()
+    local inventories = {}
+    local types = {"minecraft:chest", "minecraft:barrel", "create:depot", "minecraft:hopper"}
+
+    for _, invType in ipairs(types) do
+        local found = utils.findAllPeripherals(invType)
+        for _, inv in ipairs(found) do
+            table.insert(inventories, inv)
+        end
+    end
+
+    return inventories
 end
 
-local function findMechanicalPress()
-    return utils.findPeripheral("create:mechanical_press")
+-- Find fluid tanks
+local function findTanks()
+    local tanks = {}
+    local found = utils.findAllPeripherals("create:fluid_tank")
+    for _, tank in ipairs(found) do
+        table.insert(tanks, tank)
+    end
+    return tanks
 end
 
-local function findBasin()
-    return utils.findPeripheral("create:basin")
+-- Count items across all inventories
+local function countAllItems(itemName)
+    local total = 0
+    local inventories = findInventories()
+
+    for _, inv in ipairs(inventories) do
+        local count = utils.countItem(inv.peripheral, itemName)
+        total = total + count
+    end
+
+    return total
 end
 
-local function findDepots()
-    return utils.findAllPeripherals("create:depot")
-end
+-- Get fluid amount from tanks
+local function getFluidAmount(fluidName)
+    local total = 0
+    local tanks = findTanks()
 
-local function findFunnels()
-    return utils.findAllPeripherals("create:brass_funnel")
-end
-
--- Check if item is processable by Create
-local function getProcessingChain(itemName)
-    for chainName, chain in pairs(processingChains) do
-        if chain.input then
-            for _, input in ipairs(chain.input) do
-                if input == itemName then
-                    return chainName, chain
+    for _, tank in ipairs(tanks) do
+        -- Try to get tank info
+        if tank.peripheral.tanks then
+            local tankInfo = tank.peripheral.tanks()
+            for _, fluid in ipairs(tankInfo) do
+                if fluid.name == fluidName then
+                    total = total + fluid.amount
                 end
             end
         end
     end
-    return nil, nil
+
+    return total
 end
 
--- Process ores using Create mod machinery
-function processor.process()
-    -- Find input chest
-    local inputChest, inputName = utils.findPeripheral("minecraft:chest")
-    if not inputChest then
-        inputChest, inputName = utils.findPeripheral("minecraft:barrel")
+-- Update all inventory counts
+local function updateCounts()
+    inventoryCounts.iron = countAllItems("minecraft:iron_ingot")
+    inventoryCounts.copper = countAllItems("minecraft:copper_ingot")
+    inventoryCounts.zinc = countAllItems("create:zinc_ingot")
+    inventoryCounts.gold = countAllItems("minecraft:gold_ingot")
+    inventoryCounts.brass = countAllItems("create:brass_ingot")
+    inventoryCounts.xp = countAllItems("create:experience_nugget")
+
+    fluidLevels.molten_iron = getFluidAmount("create:molten_iron")
+    fluidLevels.molten_copper = getFluidAmount("create:molten_copper")
+    fluidLevels.molten_zinc = getFluidAmount("create:molten_zinc")
+    fluidLevels.molten_gold = getFluidAmount("create:molten_gold")
+    fluidLevels.molten_brass = getFluidAmount("create:molten_brass")
+
+    status.lastUpdate = os.clock()
+end
+
+-- Check if any storage is at limit
+local function checkStorageLimits()
+    local maxItems = config.settings.maxItems
+    local paused = {}
+
+    if inventoryCounts.iron >= maxItems then
+        paused.iron = true
+    end
+    if inventoryCounts.copper >= maxItems then
+        paused.copper = true
+    end
+    if inventoryCounts.zinc >= maxItems then
+        paused.zinc = true
+    end
+    if inventoryCounts.gold >= maxItems then
+        paused.gold = true
+    end
+    if inventoryCounts.brass >= maxItems then
+        paused.brass = true
+    end
+    if inventoryCounts.xp >= maxItems then
+        paused.xp = true
     end
 
-    if not inputChest then
-        utils.log("No input chest found!", "ERROR")
+    status.paused = paused
+    return paused
+end
+
+-- Check if system should be running (any storage not full)
+local function shouldRun()
+    local paused = checkStorageLimits()
+
+    -- If ALL storages are full, stop completely
+    if paused.iron and paused.copper and paused.zinc and paused.gold and paused.brass then
         return false
-    end
-
-    -- Find depots for processing
-    local depots = findDepots()
-    if #depots == 0 then
-        utils.log("No Create depots found!", "WARN")
-        return false
-    end
-
-    -- Find output chest (second chest)
-    local allChests = utils.findAllPeripherals("minecraft:chest")
-    local outputChest = nil
-    for _, chest in ipairs(allChests) do
-        if chest.name ~= inputName then
-            outputChest = chest.peripheral
-            break
-        end
-    end
-
-    -- Process items from input chest
-    for slot = 1, inputChest.size() do
-        local item = inputChest.getItemDetail(slot)
-        if item then
-            local chainName, chain = getProcessingChain(item.name)
-
-            if chainName then
-                -- Find available depot
-                for _, depot in ipairs(depots) do
-                    local depotItem = depot.peripheral.getItemDetail(1)
-
-                    -- If depot is empty, push item for processing
-                    if not depotItem then
-                        local moved = inputChest.pushItems(depot.name, slot, 1)
-                        if moved > 0 then
-                            utils.log("Sent " .. item.name .. " to depot for " .. chainName .. " processing")
-                            break
-                        end
-                    end
-                end
-            else
-                -- Move non-processable items to output
-                if outputChest then
-                    inputChest.pushItems(peripheral.getName(outputChest), slot)
-                end
-            end
-        end
-    end
-
-    -- Collect processed items from depots
-    for _, depot in ipairs(depots) do
-        local depotItem = depot.peripheral.getItemDetail(1)
-        if depotItem then
-            -- Check if this is a processed result
-            local isResult = false
-            for _, chain in pairs(processingChains) do
-                if chain.crushed == depotItem.name or
-                   chain.washed == depotItem.name or
-                   chain.bonus == depotItem.name then
-                    isResult = true
-                    break
-                end
-            end
-
-            -- Move results to output
-            if isResult and outputChest then
-                depot.peripheral.pushItems(peripheral.getName(outputChest), 1)
-                utils.log("Collected " .. depotItem.count .. " " .. depotItem.name)
-            end
-        end
     end
 
     return true
 end
 
--- Get status of Create processing
-function processor.status()
-    local depots = findDepots()
-    local basin = findBasin()
+-- Set redstone output for a section
+local function setRedstone(section, state)
+    local sides = config.settings.redstoneOutput
+    if sides[section] then
+        redstone.setOutput(sides[section], state)
+    end
+end
+
+-- Control the processing line
+local function controlProcessing()
+    local paused = status.paused
+
+    -- If everything is at limit, stop the whole system
+    if not shouldRun() then
+        setRedstone("mudMaker", false)
+        setRedstone("crusher", false)
+        setRedstone("smelter", false)
+        setRedstone("melter", false)
+        return false
+    end
+
+    -- Otherwise, keep running
+    setRedstone("mudMaker", true)
+    setRedstone("crusher", true)
+    setRedstone("smelter", true)
+    setRedstone("melter", true)
+
+    return true
+end
+
+-- Main processing function
+function processor.process()
+    -- Update inventory counts
+    updateCounts()
+
+    -- Check storage limits
+    checkStorageLimits()
+
+    -- Control machines based on storage
+    local running = controlProcessing()
+    status.running = running
+
+    return running
+end
+
+-- Get current status
+function processor.getStatus()
+    updateCounts()
+    checkStorageLimits()
 
     return {
-        depotCount = #depots,
-        hasBasin = basin ~= nil,
-        type = "create"
+        running = status.running,
+        paused = status.paused,
+        counts = inventoryCounts,
+        fluids = fluidLevels,
+        maxItems = config.settings.maxItems,
     }
 end
 
--- Get all processable ore types
-function processor.getProcessableOres()
-    local ores = {}
-    for chainName, chain in pairs(processingChains) do
-        if chain.input then
-            for _, input in ipairs(chain.input) do
-                table.insert(ores, {
-                    name = input,
-                    chain = chainName,
-                    result = chain.crushed or chain.washed
-                })
-            end
-        end
+-- Get inventory counts
+function processor.getCounts()
+    return inventoryCounts
+end
+
+-- Get fluid levels
+function processor.getFluids()
+    return fluidLevels
+end
+
+-- Check if specific metal is at limit
+function processor.isAtLimit(metal)
+    return inventoryCounts[metal] >= config.settings.maxItems
+end
+
+-- Force update counts
+function processor.refresh()
+    updateCounts()
+    checkStorageLimits()
+end
+
+-- Stop all processing
+function processor.stop()
+    setRedstone("mudMaker", false)
+    setRedstone("crusher", false)
+    setRedstone("smelter", false)
+    setRedstone("melter", false)
+    status.running = false
+end
+
+-- Start all processing
+function processor.start()
+    if shouldRun() then
+        setRedstone("mudMaker", true)
+        setRedstone("crusher", true)
+        setRedstone("smelter", true)
+        setRedstone("melter", true)
+        status.running = true
+        return true
     end
-    return ores
+    return false
 end
 
 return processor

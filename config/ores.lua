@@ -1,5 +1,5 @@
--- CC Ore Automation - Ore Configuration
--- Define ores, processing methods, and settings
+-- CC Ore Automation - Configuration
+-- Deepslate Ore Processing Chain
 
 local config = {}
 
@@ -8,213 +8,161 @@ config.settings = {
     -- Time between processing cycles (seconds)
     processInterval = 1,
 
-    -- Enable/disable ore types
-    enableVanilla = true,
-    enableCreate = true,
+    -- Maximum items before stopping (10 stacks)
+    maxItems = 640,
 
-    -- Logging
-    logLevel = "INFO",  -- DEBUG, INFO, WARN, ERROR
+    -- Molten metal per ingot (mB)
+    mbPerIngot = 45,
 
-    -- Redstone control
-    redstoneSide = "back",  -- Side to check for redstone signal
-    redstoneInverted = false,  -- If true, redstone ON = paused
-}
+    -- Logging level: DEBUG, INFO, WARN, ERROR
+    logLevel = "INFO",
 
--- Vanilla ore definitions
-config.vanillaOres = {
-    -- Overworld ores
-    {
-        name = "minecraft:iron_ore",
-        displayName = "Iron Ore",
-        result = "minecraft:iron_ingot",
-        method = "smelt",
-        fuelCost = 1
-    },
-    {
-        name = "minecraft:deepslate_iron_ore",
-        displayName = "Deepslate Iron Ore",
-        result = "minecraft:iron_ingot",
-        method = "smelt",
-        fuelCost = 1
-    },
-    {
-        name = "minecraft:gold_ore",
-        displayName = "Gold Ore",
-        result = "minecraft:gold_ingot",
-        method = "smelt",
-        fuelCost = 1
-    },
-    {
-        name = "minecraft:deepslate_gold_ore",
-        displayName = "Deepslate Gold Ore",
-        result = "minecraft:gold_ingot",
-        method = "smelt",
-        fuelCost = 1
-    },
-    {
-        name = "minecraft:copper_ore",
-        displayName = "Copper Ore",
-        result = "minecraft:copper_ingot",
-        method = "smelt",
-        fuelCost = 1
-    },
-    {
-        name = "minecraft:deepslate_copper_ore",
-        displayName = "Deepslate Copper Ore",
-        result = "minecraft:copper_ingot",
-        method = "smelt",
-        fuelCost = 1
-    },
-    {
-        name = "minecraft:coal_ore",
-        displayName = "Coal Ore",
-        result = "minecraft:coal",
-        method = "drop",
-        fortuneMultiplier = 1.5
-    },
-    {
-        name = "minecraft:diamond_ore",
-        displayName = "Diamond Ore",
-        result = "minecraft:diamond",
-        method = "drop",
-        fortuneMultiplier = 1.5
-    },
-    {
-        name = "minecraft:emerald_ore",
-        displayName = "Emerald Ore",
-        result = "minecraft:emerald",
-        method = "drop",
-        fortuneMultiplier = 1.5
-    },
-    {
-        name = "minecraft:lapis_ore",
-        displayName = "Lapis Lazuli Ore",
-        result = "minecraft:lapis_lazuli",
-        method = "drop",
-        fortuneMultiplier = 2.0
-    },
-    {
-        name = "minecraft:redstone_ore",
-        displayName = "Redstone Ore",
-        result = "minecraft:redstone",
-        method = "drop",
-        fortuneMultiplier = 2.0
-    },
-    -- Nether ores
-    {
-        name = "minecraft:nether_gold_ore",
-        displayName = "Nether Gold Ore",
-        result = "minecraft:gold_nugget",
-        method = "drop",
-        fortuneMultiplier = 1.5
-    },
-    {
-        name = "minecraft:nether_quartz_ore",
-        displayName = "Nether Quartz Ore",
-        result = "minecraft:quartz",
-        method = "drop",
-        fortuneMultiplier = 1.5
-    },
-    {
-        name = "minecraft:ancient_debris",
-        displayName = "Ancient Debris",
-        result = "minecraft:netherite_scrap",
-        method = "smelt",
-        fuelCost = 2
-    },
-    -- Raw ores (from silk touch or mining)
-    {
-        name = "minecraft:raw_iron",
-        displayName = "Raw Iron",
-        result = "minecraft:iron_ingot",
-        method = "smelt",
-        fuelCost = 1
-    },
-    {
-        name = "minecraft:raw_gold",
-        displayName = "Raw Gold",
-        result = "minecraft:gold_ingot",
-        method = "smelt",
-        fuelCost = 1
-    },
-    {
-        name = "minecraft:raw_copper",
-        displayName = "Raw Copper",
-        result = "minecraft:copper_ingot",
-        method = "smelt",
-        fuelCost = 1
+    -- Redstone sides for control
+    redstoneOutput = {
+        mudMaker = "left",      -- Controls dirt/water input
+        crusher = "right",      -- Controls crushing wheels
+        smelter = "back",       -- Controls furnaces
+        melter = "top",         -- Controls heated mixer
     },
 }
 
--- Create mod ore definitions
-config.createOres = {
-    -- Zinc
-    {
-        name = "create:zinc_ore",
-        displayName = "Zinc Ore",
-        crushed = "create:crushed_raw_zinc",
-        ingot = "create:zinc_ingot",
-        method = "crush_smelt"
+-- Processing Chain Steps
+-- Step 1: Mud Making
+config.mudMaking = {
+    input = {
+        dirt = "minecraft:dirt",
+        water = 200,  -- mB of water needed
     },
-    {
-        name = "create:deepslate_zinc_ore",
-        displayName = "Deepslate Zinc Ore",
-        crushed = "create:crushed_raw_zinc",
-        ingot = "create:zinc_ingot",
-        method = "crush_smelt"
+    output = "minecraft:mud",
+    machine = "basin_mixer",  -- Basin with Mechanical Mixer
+}
+
+-- Step 2: Packed Mud (crafting)
+config.packedMud = {
+    input = {
+        mud = "minecraft:mud",
+        wheat = "minecraft:wheat",
     },
-    {
-        name = "create:raw_zinc",
-        displayName = "Raw Zinc",
-        crushed = "create:crushed_raw_zinc",
-        ingot = "create:zinc_ingot",
-        method = "crush_smelt"
+    output = "minecraft:packed_mud",
+    machine = "crafter",  -- Mechanical Crafter or manual
+}
+
+-- Step 3: Crushing Packed Mud
+config.crushPackedMud = {
+    input = "minecraft:packed_mud",
+    outputs = {
+        {item = "minecraft:cobbled_deepslate", chance = 100},
+        {item = "create:deepslate_chunk", chance = 100},
+        {item = "create:deepslate_chunk", chance = 50},  -- Bonus
     },
-    -- Crushed ores for washing
-    {
-        name = "create:crushed_raw_iron",
-        displayName = "Crushed Raw Iron",
-        washed = {"minecraft:iron_nugget", 10},
-        bonus = {"minecraft:flint", 0.5},
-        method = "wash"
+    machine = "crushing_wheel",
+}
+
+-- Step 4: Smelting Cobbled Deepslate
+config.smeltDeepslate = {
+    input = "minecraft:cobbled_deepslate",
+    output = "minecraft:deepslate",
+    machine = "furnace",  -- Any furnace type
+}
+
+-- Step 5: Compacting Deepslate Chunks
+config.compactChunks = {
+    input = "create:deepslate_chunk",
+    inputCount = 4,
+    output = "minecraft:cobbled_deepslate",
+    machine = "basin_press",  -- Basin with Mechanical Press
+}
+
+-- Step 6: Crushing Deepslate -> Raw Ores
+config.crushDeepslate = {
+    input = "minecraft:deepslate",
+    outputs = {
+        {item = "create:raw_iron_chunk", chance = 30},
+        {item = "create:raw_copper_chunk", chance = 25},
+        {item = "create:raw_zinc_chunk", chance = 20},
+        {item = "create:raw_gold_chunk", chance = 15},
+        {item = "create:experience_nugget", chance = 5},
     },
-    {
-        name = "create:crushed_raw_gold",
-        displayName = "Crushed Raw Gold",
-        washed = {"minecraft:gold_nugget", 18},
-        bonus = {"minecraft:quartz", 0.5},
-        method = "wash"
-    },
-    {
-        name = "create:crushed_raw_copper",
-        displayName = "Crushed Raw Copper",
-        washed = {"create:copper_nugget", 10},
-        bonus = {"minecraft:clay_ball", 0.5},
-        method = "wash"
-    },
-    {
-        name = "create:crushed_raw_zinc",
-        displayName = "Crushed Raw Zinc",
-        washed = {"create:zinc_nugget", 10},
-        method = "wash"
+    machine = "crushing_wheel",
+}
+
+-- Step 7: Melting Raw Ores
+config.melting = {
+    mbPerOre = 5,  -- Each raw ore chunk produces 5mB
+    machine = "heated_mixer",  -- Heated Basin with Mixer
+    ores = {
+        {
+            input = "create:raw_iron_chunk",
+            output = "create:molten_iron",
+        },
+        {
+            input = "create:raw_copper_chunk",
+            output = "create:molten_copper",
+        },
+        {
+            input = "create:raw_zinc_chunk",
+            output = "create:molten_zinc",
+        },
+        {
+            input = "create:raw_gold_chunk",
+            output = "create:molten_gold",
+        },
     },
 }
 
--- Fuel priorities for smelting
-config.fuels = {
-    {name = "minecraft:coal", burnTime = 8},
-    {name = "minecraft:charcoal", burnTime = 8},
-    {name = "minecraft:coal_block", burnTime = 80},
-    {name = "minecraft:lava_bucket", burnTime = 100},
-    {name = "minecraft:blaze_rod", burnTime = 12},
+-- Step 8: Brass Alloying
+config.brassAlloying = {
+    inputs = {
+        {fluid = "create:molten_copper", amount = 2},
+        {fluid = "create:molten_zinc", amount = 1},
+    },
+    output = {fluid = "create:molten_brass", amount = 3},
+    machine = "heated_mixer",
 }
 
--- Peripheral names (can be customized)
+-- Step 9: Casting Ingots
+config.casting = {
+    mbPerIngot = 45,
+    machine = "basin_press",  -- Basin with Mechanical Press
+    metals = {
+        {
+            fluid = "create:molten_iron",
+            ingot = "minecraft:iron_ingot",
+        },
+        {
+            fluid = "create:molten_copper",
+            ingot = "minecraft:copper_ingot",
+        },
+        {
+            fluid = "create:molten_zinc",
+            ingot = "create:zinc_ingot",
+        },
+        {
+            fluid = "create:molten_gold",
+            ingot = "minecraft:gold_ingot",
+        },
+        {
+            fluid = "create:molten_brass",
+            ingot = "create:brass_ingot",
+        },
+    },
+}
+
+-- Storage limits (stop when reaching this amount)
+config.storageLimits = {
+    ["minecraft:iron_ingot"] = 640,
+    ["minecraft:copper_ingot"] = 640,
+    ["create:zinc_ingot"] = 640,
+    ["minecraft:gold_ingot"] = 640,
+    ["create:brass_ingot"] = 640,
+    ["create:experience_nugget"] = 640,
+}
+
+-- Peripheral names (nil = auto-detect)
 config.peripherals = {
-    inputChest = nil,  -- Auto-detect if nil
-    outputChest = nil,  -- Auto-detect if nil
-    furnaces = {},  -- Auto-detect if empty
-    depots = {},  -- Auto-detect if empty
+    inputChest = nil,
+    outputChest = nil,
+    fluidTanks = {},
 }
 
 return config

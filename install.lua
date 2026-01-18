@@ -13,8 +13,7 @@ local files = {
     -- Libraries
     {remote = "src/lib/utils.lua", local_path = "lib/utils.lua"},
 
-    -- Processors
-    {remote = "src/vanilla/processor.lua", local_path = "vanilla/processor.lua"},
+    -- Processor
     {remote = "src/create/processor.lua", local_path = "create/processor.lua"},
 
     -- Config
